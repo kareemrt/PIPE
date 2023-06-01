@@ -1,44 +1,57 @@
+# Name : Encrypt.py
+# Auth : Kareem T (5/30/23)
+# Desc : Perform 3 layer encryption on an image and store necessary credentials in the DB
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import hashes, padding
+from cryptography.hazmat.primitives.asymmetric import padding as RSApadding
+from cryptography.hazmat.primitives import hashes, padding, serialization
 from cryptography.hazmat.backends import default_backend
 import secrets
+import rsa
+publicKey, privateKey = rsa.newkeys(1024)       # Generate RSA public/private keys
+iv = secrets.token_bytes(16)                    # Generate a random AES initialization vector (IV) (16 bytes)
+
+def get_image(dir = 'src/img/myimage.png'):
+    '''RETRIEVE an Image file in (bytes)'''
+    with open(dir, 'rb') as file: return bytearray(file.read())
+
+def pad_image(img):
+    '''Pad an image with extra bits to achieve necessary size for encryption'''
+    padder = padding.PKCS7(256).padder()                # Pad to 256 bits
+    return padder.update(img) + padder.finalize()       
 
 def sha256_hash(key):
     '''HASH (SHA-256) user key (str) to retrieve symmetric encryption key (bytes)'''
     sha256_hasher = hashes.Hash(hashes.SHA256()) # Create a SHA-256 hash object
-    sha256_hasher.update(key.encode('utf-8'))    # Convert the string to bytes and update the hash object
+    sha256_hasher.update(key)    
     return sha256_hasher.finalize()              # Return hashed string in bytes
 
-def retrieve_image(name = 'src/img/myimage.png'):
-    '''RETRIEVE an Image file in (bytes), padded to 256 bits for AES-256 encryption'''
-    with open(name, 'rb') as file: image_data = file.read()    # Read the image file
-    padder = padding.PKCS7(256).padder()                       # Pad to 256 bits
-    return padder.update(image_data) + padder.finalize()       # Return
+def user_encryption(img, key):
+    '''Encrypt an image (bytes) by performing 2 XOR operations on it: 1st w/ the raw key (bytes), 2nd w/ the key's SHA-256 hash (bytes)'''
+    bob = "bob".encode()
+    hkey = sha256_hash(key)
+    lkey, lhkey,lbob = len(key), len(hkey),len(bob)
+    for i, val in enumerate(img): img[i] = ((val ^ key[i%lkey]) ^ hkey[i%lhkey]) ^ bob[i%lbob]
+    with open('myimage_USER_encrypted.png', 'wb') as f: f.write(img)
+    return img
 
-def encrypt(key, image, iv):
+def AES_encryption(hkey, image, iv):
     '''AES encrypt an image, then save it'''
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())        # Create an AES cipher object
-    encryptor = cipher.encryptor()                                                        # Create an encryptor object
-    encrypted_image_data = encryptor.update(image) + encryptor.finalize()                 # Encrypt the image data
-    with open('myimage_encrypted.png', 'wb') as file: file.write(encrypted_image_data)    # Write the encrypted image data to a new file
-    return encrypted_image_data
+    encryptor = Cipher(algorithms.AES(hkey), modes.CBC(iv), backend=default_backend()).encryptor()  # Create an AES cipher object
+    AES_encrypted = encryptor.update(image) + encryptor.finalize()                 # Encrypt the image data
+    with open('myimage_AES_encrypted.png', 'wb') as f: f.write(AES_encrypted)    # Write the encrypted image data to a new file
+    return AES_encrypted
 
-# user example
-user_key = 'mysecretkey123456'          # Generate a random encryption key
-encryption_key = sha256_hash(user_key)  # Hash it (SHA-256) (32 bytes)
-iv = secrets.token_bytes(16)            # Generate a random initialization vector (IV) (16 bytes)
-img = retrieve_image()                  # Retrieve padded image (32 bytes)
+def RSA_encryption(text):
+    '''RSA encrypt an image, then save it'''
+    RSA_encrypted = rsa.encrypt(text,publicKey)
+    with open('myimage_RSA_encrypted.png', 'wb') as f: f.write(RSA_encrypted)    # Write the encrypted image data to a new file
+    return RSA_encrypted
 
-encrypted_img = encrypt(encryption_key, img, iv)        # Test encryption
-
-def decrypt(key, image, iv):
-    '''AES decrypt an image, then save it'''
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())    # Create an AES cipher object
-    decryptor = cipher.decryptor()                                                    # Create a decryptor object
-    decrypted_data = decryptor.update(image) + decryptor.finalize()                   # Decrypt image
-    unpadder = padding.PKCS7(256).unpadder()                                          # Create un-padder object
-    unpadded_data = unpadder.update(decrypted_data) + unpadder.finalize()             # Unpad the 256-bit padding
-    with open('myimage_decrypted.png', 'wb') as file: file.write(unpadded_data)       # Write the encrypted image data to a new file
-
-decrypt(encryption_key, encrypted_img, iv)        # Test decryption
-
+# Sample example user
+user_key = 'mysecretkey123456'.encode()           # Sample user input encryption key
+encryption_key = sha256_hash(user_key)            # Hash user key (SHA-256) (32 bytes)
+img = get_image()                                 # Retrieve sample image (bytes)
+usrenc = user_encryption(img, user_key)           # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
+padded_img = pad_image(usrenc)                    # Pad the image to have necessary bits/length required for AES
+superkey = RSA_encryption(encryption_key)         # | LAYER 2 | RSA Encrypt: privately sign the hash(user key) to use for AES encryption
+AESenc = AES_encryption(encryption_key, padded_img, iv) # | LAYER 3 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
