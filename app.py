@@ -1,47 +1,43 @@
-from flask import Flask, render_template, g, request
-import sqlite3
-
+from flask import Flask, render_template, g, request, redirect, url_for, session
+import Security
 app = Flask(__name__, static_folder = 'src/static', template_folder = 'src/templates')
-DATABASE = 'src/Crypto.db'
-
-def get_db():
-    '''Connect to SQLite DB (returns DB)'''
-    db = getattr(g, '_database', None)
-    if db is None: db = g._database = sqlite3.connect(DATABASE)
-    return db
-
-@app.teardown_appcontext
-def close_connection(exception):
-    '''Close SQLite connection'''
-    db = getattr(g, '_database', None)
-    if db is not None: db.close()
+app.secret_key = 'your_secret_key'
 
 @app.route('/')
-def home() -> render_template:
-    '''HOME PAGE'''
-    return render_template('home.html', message = 'Login/Register Below!')
+def home(): 
+    msg = 'Login Below!' if session.get('msg') == None else session.get('msg')
+    session.pop('msg', None)
+    return render_template('home.html', message = msg)
 
 @app.route('/login', methods=['POST'])
 def authenicate() -> render_template:
     '''User account authentication (register/login) via 'username' and 'password' entry boxes'''
-    user = request.form['user']     # Retrieve credentials from user
-    passw = request.form['passw']
-    action = request.form['button']
-    db = get_db()       # Connect to DB
-    c = db.cursor()
-    if action == 'Login':     # User pressed login
-        if c.execute('SELECT COUNT(*) FROM login WHERE user = ? AND pass = ?', (user, passw)).fetchone()[0] == 0: return render_template('home.html', message = 'Account does not exist!') # Fail
-        else:
-            g.user, g.passw = user, passw
-            return render_template('ev.html', message = 'Logged in!') # Success
-    if action == 'Sign-Up':   # User pressed sign-up
-        if c.execute('SELECT COUNT(*) FROM login WHERE user = ?', (user,)).fetchone()[0] > 0: return render_template('home.html', message = 'Username taken!') # Fail
-        else: # Success
-            c.execute('INSERT INTO login (user, pass) VALUES (?, ?)', (user, passw))
-            db.commit()
-            return render_template('ev.html', message = 'Registered!')
-    db.commit()    # Commit
-    db.close()
+    user, passw, action = request.form['user'], request.form['passw'], request.form['button'] # Retrieve user credentials / action
+    # User pressed login
+    if action == 'Login':   
+        if Security.login(user, passw): # Success
+            session['user'], session['logged_in'] = user, "True"
+            return redirect(url_for('encrypt_decrypt')) 
+        session['msg'] = 'False credentials' # Failure
+        return redirect(url_for('home')) 
+    # User pressed register
+    if action == 'Sign-Up':   
+        if Security.register(user, passw): # Success
+            session['msg'], session['logged_in'] = 'Registered successfully!', "True"
+            return redirect(url_for('encrypt_decrypt'))
+        session['msg'] = 'Username taken!' # Failure
+        return redirect(url_for('home'))
+
+@app.route('/encrypt_decrypt', methods=['GET'])
+def encrypt_decrypt() -> render_template:
+    '''User account authentication (register/login) via 'username' and 'password' entry boxes'''
+    if session.get('logged_in') != "True": # Ensure they logged in
+        session['msg'] = 'You must be logged in to encrypt/decrypt!'
+        return redirect(url_for('home'))
+    print(session.get('user'))
+    session.pop('logged_in', None)
+    return render_template('ev.html') # Show page / give users choice
+
 
 if __name__ == '__main__':
     app.run(debug=True)

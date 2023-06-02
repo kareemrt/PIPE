@@ -2,11 +2,12 @@
 # Auth : Kareem T (5/30/23)
 # Desc : Perform 3 layer encryption on an image and store necessary credentials in the DB
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.asymmetric import padding as RSApadding
-from cryptography.hazmat.primitives import hashes, padding, serialization
+from cryptography.hazmat.primitives import hashes, padding
 from cryptography.hazmat.backends import default_backend
 import secrets
 import rsa
+import uuid
+import Security
 publicKey, privateKey = rsa.newkeys(1024)       # Generate RSA public/private keys
 iv = secrets.token_bytes(16)                    # Generate a random AES initialization vector (IV) (16 bytes)
 
@@ -47,11 +48,16 @@ def RSA_encryption(text):
     with open('myimage_RSA_encrypted.png', 'wb') as f: f.write(RSA_encrypted)    # Write the encrypted image data to a new file
     return RSA_encrypted
 
+def encrypt_image(key, image, name, owner, permissions):
 # Sample example user
-user_key = 'mysecretkey123456'.encode()           # Sample user input encryption key
-encryption_key = sha256_hash(user_key)            # Hash user key (SHA-256) (32 bytes)
-img = get_image()                                 # Retrieve sample image (bytes)
-usrenc = user_encryption(img, user_key)           # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
-padded_img = pad_image(usrenc)                    # Pad the image to have necessary bits/length required for AES
-superkey = RSA_encryption(encryption_key)         # | LAYER 2 | RSA Encrypt: privately sign the hash(user key) to use for AES encryption
-AESenc = AES_encryption(encryption_key, padded_img, iv) # | LAYER 3 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
+    user_key = key.encode()           # Sample user input encryption key
+    encryption_key = sha256_hash(user_key)            # Hash user key (SHA-256) (32 bytes)
+    usrenc = user_encryption(image, user_key)           # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
+    padded_img = pad_image(usrenc)                    # Pad the image to have necessary bits/length required for AES
+    superkey = RSA_encryption(encryption_key)         # | LAYER 2 | RSA Encrypt: privately sign the hash(user key) to use for AES encryption
+    AESenc = AES_encryption(encryption_key, padded_img, iv) # | LAYER 3 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
+    # generate unique file names
+    namespace_uuid = uuid.UUID('12345678-9876-5432-1234-567898765432')  # RANDOM SEED for UUID GENERATION
+    EFName = str(uuid.uuid5(namespace_uuid, str(usrenc))) # 
+    print(EFName)
+    Security.encrypt(EFName, name, superkey, owner, sha256_hash(AESenc), permissions) # TODO : GET key, file name, owner, perms, image from flask
