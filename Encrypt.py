@@ -2,7 +2,7 @@
 # Auth : Kareem T (5/30/23)
 # Desc : Perform 3 layer encryption on an image and store necessary credentials in the DB
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import hashes, padding
+from cryptography.hazmat.primitives import hashes, padding, serialization
 from cryptography.hazmat.backends import default_backend
 import secrets
 import rsa
@@ -29,9 +29,8 @@ def sha256_hash(key):
 def user_encryption(img, key):
     '''Encrypt an image (bytes) by performing 2 XOR operations on it: 1st w/ the raw key (bytes), 2nd w/ the key's SHA-256 hash (bytes)'''
     bob = "bob".encode()
-    hkey = sha256_hash(key)
-    lkey, lhkey,lbob = len(key), len(hkey),len(bob)
-    for i, val in enumerate(img): img[i] = ((val ^ key[i%lkey]) ^ hkey[i%lhkey]) ^ bob[i%lbob]
+    lkey,lbob = len(key),len(bob)
+    for i, val in enumerate(img): img[i] = (val ^ key[i%lkey]) ^ bob[i%lbob]
     with open('myimage_USER_encrypted.png', 'wb') as f: f.write(img)
     return img
 
@@ -48,16 +47,25 @@ def RSA_encryption(text):
     with open('myimage_RSA_encrypted.png', 'wb') as f: f.write(RSA_encrypted)    # Write the encrypted image data to a new file
     return RSA_encrypted
 
-def encrypt_image(key, image, name, owner, permissions):
-# Sample example user
-    user_key = key.encode()           # Sample user input encryption key
-    encryption_key = sha256_hash(user_key)            # Hash user key (SHA-256) (32 bytes)
-    usrenc = user_encryption(image, user_key)           # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
-    padded_img = pad_image(usrenc)                    # Pad the image to have necessary bits/length required for AES
-    superkey = RSA_encryption(encryption_key)         # | LAYER 2 | RSA Encrypt: privately sign the hash(user key) to use for AES encryption
-    AESenc = AES_encryption(encryption_key, padded_img, iv) # | LAYER 3 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
-    # generate unique file names
-    namespace_uuid = uuid.UUID('12345678-9876-5432-1234-567898765432')  # RANDOM SEED for UUID GENERATION
-    EFName = str(uuid.uuid5(namespace_uuid, str(usrenc))) # 
-    print(EFName)
-    Security.encrypt(EFName, name, superkey, owner, sha256_hash(AESenc), permissions) # TODO : GET key, file name, owner, perms, image from flask
+def generate_uuid(file): return str(uuid.uuid5(uuid.UUID('12345678-9876-5432-1234-567898765432'), str(file)))
+
+def encrypt(key, image, name, owner, permissions, iv=secrets.token_bytes(16)):
+    # Key Encryption
+    hashed_key = sha256_hash(key.encode())            # Hash user key (SHA-256) (32 bytes)
+    superkey = RSA_encryption(hashed_key)             # | LAYER 3 | RSA Encrypt: privately sign the AES encryption key
+    # Image Encryption
+    usrenc = user_encryption(bytearray(image), key.encode())   # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
+    AESenc = AES_encryption(hashed_key, pad_image(usrenc), iv) # | LAYER 2 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
+    # File-name Encryption
+    EFName =  generate_uuid(AESenc)
+    with open('enc.Monkey', 'wb') as f: f.write(AESenc)
+    # Storage
+    Security.encrypt(EFName, name, superkey, owner, sha256_hash(AESenc), permissions, iv) # TODO : GET key, file name, owner, perms, image from flask
+    return EFName, name, superkey, owner, sha256_hash(AESenc), permissions, iv
+
+# Save the private key to a file
+pem = privateKey.save_pkcs1(format='PEM')
+with open("private_key.pem", "wb") as f: f.write(pem)
+pem = publicKey.save_pkcs1(format='PEM')
+with open("public_key.pem", "wb") as f: f.write(pem)
+

@@ -25,10 +25,25 @@ def register(user, password):
     db.close()
     return True
 
-def encrypt(EName, OName, Superkey, Owner, Hash, Permissions):
+def encrypt(EName, OName, Superkey, Owner, Hash, Permissions, iv):
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
-    c.execute('INSERT INTO perm (EFName, Superkey, Hash, Owner, Perms, OName) VALUES (?, ?, ?, ?, ?, ?)', (EName, Superkey, Hash, Owner, Permissions, OName))
+    c.execute('INSERT INTO perm (EFName, Superkey, IV, Hash, Owner, Perms, OName) VALUES (?, ?, ?, ?, ?, ?, ?)', (EName, Superkey, iv, Hash, Owner, Permissions, OName))
     db.commit()
     db.close()
     return True
+
+def decrypt(EName, user, key, fhash):
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor()
+    if c.execute('SELECT COUNT(*) FROM perm WHERE EFName = ? AND Superkey = ? AND Hash = ? AND Perms = ?', (EName, key, fhash, user)).fetchone()[0] > 0: 
+        print('found')
+        c.execute('SELECT * FROM perm WHERE EFName = ? AND Superkey = ?', (EName, key))
+        data = c.fetchall()[0]
+        print(len(data), data)
+        superkey, iv, oname = data[1], data[2], data[6]
+        return (superkey, iv, oname)
+    print('not found')
+    db.close()
+    return False 
+
