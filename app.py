@@ -28,15 +28,52 @@ def authenicate():
         session['msg'] = 'Username taken!' # Failure
         return redirect(url_for('home'))
 
-@app.route('/choice', methods=['GET'])
+@app.route('/choice', methods=['GET', 'POST'])
 def choice():
     '''User account authentication (register/login) via 'username' and 'password' entry boxes'''
     if session.get('logged_in') != "True": # Ensure they logged in
         session['msg'] = 'You must be logged in to encrypt/decrypt!'
         return redirect(url_for('home'))
     print(session.get('user'))
-    session.pop('logged_in', None)
-    return render_template('ev.html') # Show page / give users choice
+    #session.pop('logged_in', None)
+
+    return render_template('ev.html', message = 'Registered!')
+
+
+
+#connects buttons on ev to metadata pages
+
+@app.route('/ev', methods=['POST'])
+def choose() -> render_template:
+    action = request.form['button']
+
+    if action == 'Encrypt': #user chooses encrypt
+        return render_template('encrypt_metadata.html')
+    if action == 'Decrypt': #user chooses decrypt
+        return render_template('decrypt_metadata.html')
+    
+
+
+    #connects buttons on ev to metadata pages
+    
+   
+#Hannah's updates
+
+
+
+@app.route('/encrypt_metadata', methods=['POST'])
+def accept_metadata() -> render_template:
+
+    if request.method == 'POST':
+        file_name = request.form['file_name']
+        pass_key = request.form['passkey']
+        decrypt_users = request.form['decrypt_users']
+
+        print(file_name, pass_key, decrypt_users)
+
+
+    return render_template('download_encrypted.html', msg = "data committed exist")
+
 
 
 
