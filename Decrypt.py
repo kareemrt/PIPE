@@ -5,7 +5,7 @@ from Encrypt import *
 import Security
 
 def RSA_decryption(ciphertext):
-    RSA_decrypted = rsa.decrypt(ciphertext, privateKey)
+    RSA_decrypted = rsa.decrypt(ciphertext, RSA_keys()[1])
     with open(f'myimage_RSA_decrypted.png', 'wb') as f: f.write(RSA_decrypted)       # Write the encrypted image data to a new file
     return RSA_decrypted
 
@@ -18,10 +18,10 @@ def AES_decryption(hkey, img, iv):
 
 def user_decryption(img, key):
     '''Encrypt an image by performing 2 XOR operations, one with the key, one with the key's SHA-256 hash'''
-    img = bytearray(img)
+    if(type(img) != bytearray): img = bytearray(img)
     bob = "bob".encode()
     lkey, lbob = len(key), len(bob)
-    for i, val in enumerate(img): img[i] = (val ^ key[i%lkey]) ^ bob[i%lbob]
+    for i, val in enumerate(img): img[i] = val ^ key[i%lkey] ^ bob[i%lbob]
     with open(f'myimage_USER_decrypted.png', 'wb') as f: f.write(img)       # Write the encrypted image data to a new file
     return img
 
@@ -40,8 +40,20 @@ def decrypt(EFName, key, user, fhash, EFile):
     decrypted = user_decryption(unpadded, hashed_key)
     return decrypted
 
+# sample decrypt
+#EFName, superkey, fhash, owner, perm, OName, iv = encrypt(get_image(), 'monkey', 'jon', 'ron', 'markimage')
+#with open(f'{EFName}.Monkey', 'rb') as f: encf = f.read()
+#d = decrypt(EFName, superkey, "ron", sha256_hash(encf), encf)
+#with open('dec.png', 'wb') as f: f.write(bytearray(d))
 
-EFName, Oname, superkey, owner, fhash, perm, iv = encrypt('monkey', get_image(), 'markimage', 'ron', 'jon')
-with open('enc.Monkey', 'rb') as f: encf = f.read()
-d = decrypt(EFName, superkey, "jon", sha256_hash(encf), encf)
-with open('dec.png', 'wb') as f: f.write(d)
+# user test
+#hkey = sha256_hash('monkey'.encode())
+#img = get_image()
+#uenc = OUR_encryption(img, 'monkey'.encode())
+#tiv = secrets.token_bytes(16)
+#pd = pad_image(uenc)
+#aenc = AES_encryption(hkey, pd, tiv)
+#denc = AES_decryption(hkey, aenc, tiv)
+#un = unpad_image(denc)
+#de = user_decryption(un, 'monkey'.encode())
+#with open('test.png', 'wb') as f: f.write(de)
