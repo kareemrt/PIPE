@@ -1,6 +1,7 @@
 import sqlite3
 from cryptography.hazmat.primitives import hashes
 DATABASE = 'src/Crypto.db'
+import re
 
 def sha256_hash(key):
     '''HASH (SHA-256) user key (str) to retrieve symmetric encryption key (bytes)'''
@@ -46,4 +47,21 @@ def decrypt(EName, user, key, fhash):
     print('not found')
     db.close()
     return False 
+
+
+#hannah:function to check if inputted users for 'decryption permission'
+def check_perms_exist(perms):
+
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor() 
+
+    list_of_users = re.findall(r'\b\S+\b', perms)
+
+    for user in list_of_users:
+
+        hashed_decrypt_users = sha256_hash(user.encode())
+        if c.execute('SELECT COUNT(*) FROM login WHERE user = ?', (hashed_decrypt_users,)).fetchone()[0] == 0:
+            return  False
+
+    return True
 

@@ -1,7 +1,27 @@
 from flask import Flask, render_template, g, request, redirect, url_for, session
 import Security
+#import Encrypt
+import re
+
+#import sqlite for temp funtion get_db
+import sqlite3
+
 app = Flask(__name__, static_folder = 'src/static', template_folder = 'src/templates')
+
+#for temp function
+DATABASE = 'src/Crypto.db'
+
+
 app.secret_key = 'your_secret_key'
+
+
+#temp funtion to test query in accept_metadata
+def get_db():
+    '''Connect to SQLite DB (returns DB)'''
+    db = getattr(g, '_database', None)
+    if db is None: db = g._database = sqlite3.connect(DATABASE)
+    return db
+#end of temp funtion
 
 @app.route('/')
 def home(): 
@@ -41,7 +61,7 @@ def choice():
 
 
 
-#connects buttons on ev to metadata pages
+#connects buttons on ev to metadata pages ask hannah
 
 @app.route('/ev', methods=['POST'])
 def choose() -> render_template:
@@ -65,14 +85,24 @@ def choose() -> render_template:
 def accept_metadata() -> render_template:
 
     if request.method == 'POST':
+        current_user = session.get('user')
         file_name = request.form['file_name']
         pass_key = request.form['passkey']
         decrypt_users = request.form['decrypt_users']
+        image_upload = request.files['image_upload']
 
         print(file_name, pass_key, decrypt_users)
 
+        if image_upload:
+            print("we got something")
 
-    return render_template('download_encrypted.html', msg = "data committed exist")
+        if Security.check_perms_exist(decrypt_users) == False:
+            return render_template("download_encrypted.html", msg = "These Users do not exist!") #Tried to give decrypt permission to users that do not exist
+
+
+        #print(Encrypt.encrypt(image_upload, pass_key, current_user, decrypt_users, file_name))      
+
+        return render_template('download_encrypted.html', msg = "data committed success")
 
 
 
