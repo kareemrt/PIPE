@@ -26,7 +26,7 @@ def register(user, password):
     db.close()
     return True
 
-def encrypt(EName, OName, Superkey, Owner, Hash, Permissions, iv):
+def encrypt(EName, Superkey, Hash, Owner, Permissions, OName, iv):
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
     c.execute('INSERT INTO perm (EFName, Superkey, IV, Hash, Owner, Perms, OName) VALUES (?, ?, ?, ?, ?, ?, ?)', (EName, Superkey, iv, Hash, Owner, Permissions, OName))

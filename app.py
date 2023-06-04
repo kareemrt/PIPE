@@ -1,7 +1,6 @@
 from flask import Flask, render_template, g, request, redirect, url_for, session
+import Encrypt
 import Security
-#import Encrypt
-import re
 
 #import sqlite for temp funtion get_db
 import sqlite3
@@ -100,8 +99,9 @@ def accept_metadata() -> render_template:
             return render_template("download_encrypted.html", msg = "These Users do not exist!") #Tried to give decrypt permission to users that do not exist
 
 
-        #print(Encrypt.encrypt(image_upload, pass_key, current_user, decrypt_users, file_name))      
+        Encrypt.encrypt(image_upload.read(), pass_key, current_user, decrypt_users, file_name)      
 
+        
         return render_template('download_encrypted.html', msg = "data committed success")
 
 

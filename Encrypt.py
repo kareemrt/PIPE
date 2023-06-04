@@ -73,4 +73,3 @@ def encrypt(image, key, owner, permissions, name, iv=secrets.token_bytes(16)):
     with open(f'{EFName}.Monkey', 'wb') as f: f.write(AESenc)
     # Storage
     Security.encrypt(EFName, superkey, sha256_hash(AESenc), owner, permissions, name, iv) # TODO : GET key, file name, owner, perms, image from flask
-    return EFName, superkey, sha256_hash(AESenc), owner, permissions, name, iv
