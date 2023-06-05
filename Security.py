@@ -9,6 +9,7 @@ def sha256_hash(key):
     sha256_hasher.update(key)    
     return sha256_hasher.finalize()              # Return hashed string in bytes
 
+
 def login(user, password):
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
@@ -49,7 +50,7 @@ def decrypt(EName, user, key, fhash):
     return False 
 
 
-#hannah:function to check if inputted users for 'decryption permission'
+#hannah:function to check if inputted users for 'decryption permission' exist during encrypt metadata
 def check_perms_exist(perms):
 
     db = sqlite3.connect(DATABASE)
@@ -65,3 +66,69 @@ def check_perms_exist(perms):
 
     return True
 
+def retrieve_last_Efile():
+    #returns most recently added encrypted file_name string from perm database database
+
+    #fetches last entry in EFName from DB
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor()
+    c.execute(f"SELECT EFName FROM perm")
+    Efile_col = c.fetchall()
+    db.close()
+    Efile_name = Efile_col[-1]
+    #converts to string for file reading
+    Efile_str = Efile_name[0]
+    return Efile_str
+
+#check if current user has decryption permission for uploaded monkey file
+def user_has_perm(current_user, Efile):
+    print(current_user)
+    print(Efile)
+
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor()
+    c.execute("SELECT Perms FROM perm WHERE EFName = ?", (Efile,))
+    perm_str = c.fetchone()[0]
+    users_withperm_list = re.findall(r'\b\S+\b', perm_str)
+    db.close()
+
+    for valid_user in users_withperm_list:
+        if current_user == valid_user:
+            return True
+        
+    return False
+
+def check_file_exists(file_str):
+    end_monkey = re.search(".Monkey$", file_str)
+
+    if end_monkey == False:
+        return False
+    Efile= (re.sub('\.Monkey$', '', file_str))
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor()
+    if c.execute('SELECT COUNT(*) FROM perm WHERE EFName = ?', (Efile,)).fetchone()[0] == 0:
+            return  False
+
+    return True
+
+
+
+#check if passkey is correct
+def check_passkey(temp_super_key, Efile):
+    print(Efile)
+
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor()
+    c.execute("SELECT Superkey FROM perm WHERE EFName = ?", (Efile,))
+    superkey_str= c.fetchone()[0]
+    db.close()
+    print(superkey_str, '\n')
+    print(temp_super_key)
+
+    if superkey_str == temp_super_key:
+        return True
+    
+    return False
+
+#print(check_passkey('Tree', '6e22ab16-1607-509e-a4ae-69e8b28f883e'))
+    

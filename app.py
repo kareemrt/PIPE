@@ -1,7 +1,7 @@
-from flask import Flask, render_template, g, request, redirect, url_for, session
+from flask import Flask, render_template, g, request, redirect, url_for, session, send_file
 import Encrypt
 import Security
-
+import re
 #import sqlite for temp funtion get_db
 import sqlite3
 
@@ -80,7 +80,7 @@ def choose() -> render_template:
 
 
 
-@app.route('/encrypt_metadata', methods=['POST'])
+@app.route('/encrypt_metadata', methods=['POST', 'GET'])
 def accept_metadata() -> render_template:
 
     if request.method == 'POST':
@@ -96,13 +96,66 @@ def accept_metadata() -> render_template:
             print("we got something")
 
         if Security.check_perms_exist(decrypt_users) == False:
-            return render_template("download_encrypted.html", msg = "These Users do not exist!") #Tried to give decrypt permission to users that do not exist
+            return render_template("encrypt_metadata.html", msg = "One or more of these users do not exist! please try again") #Tried to give decrypt permission to users that do not exist
 
 
         Encrypt.encrypt(image_upload.read(), pass_key, current_user, decrypt_users, file_name)      
 
+        return render_template('download_encrypted.html', msg = "File Successfully secured!")
+
+    return render_template('encrypt_metadata.html')
+
+
+@app.route('/download_encrypted', methods=["GET","POST"])
+def download_file():
+    Efile = Security.retrieve_last_Efile()
+    #print(Efile) 
+    path = f'{Efile}.Monkey'
+    return send_file(path, as_attachment=True)
+
+@app.route('/decrypt_metadata', methods=['POST', 'GET'])
+def authorize_decryption() -> render_template:
+
+    if request.method == 'POST':
+
+        name = request.form['file_name']
+        pass_key = request.form['passkey']
+        Efile = request.files['Monkey_upload']
+        current_user = session.get('user')
         
-        return render_template('download_encrypted.html', msg = "data committed success")
+
+
+        temp_key = Encrypt.sha256_hash(pass_key.encode())
+        super_temp_key = Encrypt.RSA_encryption(temp_key)
+        
+        if Security.check_file_exists(str(Efile.filename)) == False:
+            return render_template('decrypt_metadata.html', msg = 'Sorry, This file has either been modified or does not exist')
+        else:
+            Efile_name= re.sub('\.Monkey$', '', str(Efile.filename))
+            print(Efile_name)
+        
+        if Security.user_has_perm(current_user, Efile_name) == False:
+            return render_template('decrypt_metadata.html', msg = 'Sorry, you do not have permission to decrypt this file')
+
+        if Security.check_passkey(super_temp_key, Efile_name) == True:
+            return render_template('decrypt_metadata.html', msg = 'Sorry, this passkey is incorrect')
+        
+        
+        return render_template('decrypted_download.html')
+
+    
+    return render_template('decrypt_metadata.html')
+
+#this route currently does nothing
+@app.route('/download_decrypted', methods=["GET","POST"])
+def download_decrypt_file():
+    #Efile = Security.retrieve_last_Efile()
+    #print(Efile) 
+    path = ''
+    return send_file(path, as_attachment=True)
+
+
+
 
 
 
