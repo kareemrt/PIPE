@@ -62,15 +62,18 @@ def choice():
 
 #connects buttons on ev to metadata pages ask hannah
 
-@app.route('/ev', methods=['POST'])
+@app.route('/ev', methods=['POST', 'GET'])
 def choose() -> render_template:
-    action = request.form['button']
 
-    if action == 'Encrypt': #user chooses encrypt
-        return render_template('encrypt_metadata.html')
-    if action == 'Decrypt': #user chooses decrypt
-        return render_template('decrypt_metadata.html')
-    
+    if request.method == 'POST':
+
+        action = request.form['button']
+
+        if action == 'Encrypt': #user chooses encrypt
+            return render_template('encrypt_metadata.html')
+        if action == 'Decrypt': #user chooses decrypt
+            return render_template('decrypt_metadata.html')
+    return render_template('ev.html')
 
 
     #connects buttons on ev to metadata pages
