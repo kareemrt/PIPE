@@ -64,7 +64,7 @@ def choose() -> render_template:
         session['msg'] = 'You must be logged in to encrypt/decrypt!'
         return redirect(url_for('home'))
     print(session.get('user'), 'is choosing to encrypt/decrypt')
-    session.pop('logged_in', None)
+    #session.pop('logged_in', None)
 
     if request.method == 'POST':
 
@@ -127,6 +127,25 @@ def authorize_decryption() -> render_template:
 def download_decrypt_file(fname):
     path = f'usr/plain/{fname}'
     return send_file(path, as_attachment=True)
+
+
+@app.route('/update_permission', methods=["GET","POST"]) # update decryption permissions for a monkey file 
+def update_perms() -> render_template:
+
+    if request.method == 'POST':
+
+        current_user = session.get('user')
+        file_upload = request.files['image_upload']
+        new_decrypt_users = request.form['decrypt_users']
+        EFName = (re.sub('\.Monkey$', '', file_upload.filename))
+        usrFILE = bytearray(file_upload.read())
+
+        if Decrypt.check_conditions(usrFILE, EFName, current_user, check_owner = True):
+            Security.update_permissions(EFName, new_decrypt_users)
+
+ 
+    return render_template('update_permission.html')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
