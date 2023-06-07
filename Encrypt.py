@@ -1,6 +1,6 @@
 # Name : Encrypt.py
 # Auth : Kareem T (5/30/23)
-# Desc : Perform 3 layer encryption on an image and store necessary credentials in the DB
+# Desc : Encrypt module - Perform 3 layer encryption on an image and store necessary credentials in the DB
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import hashes, padding, serialization
 from cryptography.hazmat.backends import default_backend
@@ -16,12 +16,12 @@ def RSA_keys(create = False):
         publicKey, privateKey = rsa.newkeys(1024)       # Generate RSA public/private keys
         # Save the private key to a file
         pem = privateKey.save_pkcs1(format='PEM')
-        with open("private_key.pem", "wb") as f: f.write(pem)
+        with open("src/private_key.pem", "wb") as f: f.write(pem)
         pem = publicKey.save_pkcs1(format='PEM')
-        with open("public_key.pem", "wb") as f: f.write(pem)
+        with open("src/public_key.pem", "wb") as f: f.write(pem)
     else: 
-        with open("public_key.pem", "rb") as f: publicKey = rsa.key.PublicKey.load_pkcs1(f.read())
-        with open('private_key.pem', "rb") as f: privateKey = rsa.key.PrivateKey.load_pkcs1(f.read())
+        with open("src/public_key.pem", "rb") as f: publicKey = rsa.key.PublicKey.load_pkcs1(f.read())
+        with open('src/private_key.pem', "rb") as f: privateKey = rsa.key.PrivateKey.load_pkcs1(f.read())
     return publicKey, privateKey
 
 def get_image(dir = 'src/img/myimage.png'):
@@ -45,20 +45,17 @@ def OUR_encryption(img, hkey):
     bob = "bob".encode()
     lkey, lbob = len(hkey), len(bob)
     for i, val in enumerate(img): img[i] = val ^ hkey[i%lkey] ^ bob[i%lbob]
-    with open('myimage_USER_encrypted.png', 'wb') as f: f.write(img)
     return img
 
 def AES_encryption(hkey, image, iv):
     '''AES encrypt an image, then save it'''
     encryptor = Cipher(algorithms.AES(hkey), modes.CBC(iv), backend=default_backend()).encryptor()  # Create an AES cipher object
     AES_encrypted = encryptor.update(image) + encryptor.finalize()                 # Encrypt the image data
-    with open('myimage_AES_encrypted.png', 'wb') as f: f.write(AES_encrypted)    # Write the encrypted image data to a new file
     return AES_encrypted
 
 def RSA_encryption(text):
     '''RSA encrypt an image, then save it'''
     RSA_encrypted = rsa.encrypt(text,RSA_keys()[0])
-    with open('myimage_RSA_encrypted.png', 'wb') as f: f.write(RSA_encrypted)    # Write the encrypted image data to a new file
     return RSA_encrypted
 
 def encrypt(image, key, owner, permissions, name, iv=secrets.token_bytes(16)):
@@ -70,6 +67,13 @@ def encrypt(image, key, owner, permissions, name, iv=secrets.token_bytes(16)):
     AESenc = AES_encryption(hashed_key, pad_image(usrenc), iv) # | LAYER 2 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
     # File-name Encryption
     EFName = generate_uuid(AESenc)
-    with open(f'{EFName}.Monkey', 'wb') as f: f.write(AESenc)
+    with open(f'usr/monkeys/{EFName}.Monkey', 'wb') as f: f.write(AESenc)
     # Storage
     Security.encrypt(EFName, superkey, sha256_hash(AESenc), owner, permissions, name, iv) # TODO : GET key, file name, owner, perms, image from flask
+    return EFName 
+
+
+def check_perms_exist(users):
+    for user in users: 
+        if not Security.login(user, cred_check=True): return False
+    return True
