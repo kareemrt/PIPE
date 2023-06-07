@@ -62,10 +62,10 @@ def decrypt(EName, user, fhash):
 def get_parameter(Efile, parameter):
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
-    match parameter:
-        case 'hash': query = 'select hash'
-        case 'Superkey': query = 'select Superkey'
-        case 'Perms': query = 'select Perms'
+    if parameter == 'hash': query = 'select hash'
+    elif parameter == 'Superkey': query = 'select Superkey'
+    elif parameter == 'Perms': query = 'select Perms'
+    elif parameter == 'Owner': query = 'select Owner'
     query = query + " from perm where EFName = ?"
     pstr = c.execute(query, (Efile,)).fetchone()[0]
     print(f'Getting {parameter} from File {Efile}, value = {pstr}')
