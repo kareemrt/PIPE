@@ -41,7 +41,7 @@ def authenicate():
         return redirect(url_for('home'))
 
 #connects buttons on ev to metadata pages ask hannah
-
+"""
 @app.route('/ev', methods=['POST', 'GET'])
 def choose() -> render_template:
 
@@ -55,7 +55,7 @@ def choose() -> render_template:
             return render_template('decrypt_metadata.html')
     return render_template('ev.html')
 
-
+"""
 @app.route('/ev', methods=['POST', 'GET']) # Encrypt / Decrypt module
 def choose() -> render_template:
 
