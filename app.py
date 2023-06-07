@@ -147,5 +147,12 @@ def update_perms() -> render_template:
     return render_template('update_permission.html')
 
 
+@app.route('/logout', methods=["GET","POST"]) # update decryption permissions for a monkey file 
+def logout():
+        session.pop('logged_in', None)
+
+        return redirect(url_for('home'))
+
+
 if __name__ == '__main__':
     app.run(debug=True)
