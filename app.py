@@ -1,6 +1,6 @@
 # Name : app.py
 # Auth : Hannah S & Kareem T (6/5/23)
-# Desc : Web app framework
+# Desc : Web app frameworks
 from flask import Flask, render_template, g, request, redirect, url_for, session, send_file
 import Encrypt
 import Security
