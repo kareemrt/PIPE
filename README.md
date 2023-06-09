@@ -9,3 +9,6 @@
 - Permissions sharing (with other users)
 - Proprietary cloud encryption
 - Downloadable encrypted files
+- Permissions modification
+- Server logging
+- Unittest suite
