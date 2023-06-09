@@ -1,65 +1,59 @@
 # Name : Security.py
 # Auth : Hannah S & Kareem T (6/5/23)
-# Desc : Security module - Perform DB operations
+# Desc : Security module - Perform security checks for all other module functions
+# - Security retrieves client hashes/keys/permissions, alongside server RSA keys, UUID-generation keys, and User-Cookie encryption keys
 import sqlite3
-from cryptography.hazmat.primitives import hashes
+import rsa
+import os
 DATABASE = 'src/Crypto.db'
 
-
-def sha256_hash(key):
-    '''HASH (SHA-256) user key (bytes) to retrieve symmetric encryption key (bytes)'''
-    sha256_hasher = hashes.Hash(hashes.SHA256()) # Create a SHA-256 hash object
-    sha256_hasher.update(key)    
-    return sha256_hasher.finalize()              # Return hashed string in bytes
-
-def login(user, password = None, cred_check = False):
-    '''True/False whether login credentials exist'''
+def login(user, password):
+    '''True/False Login a user'''
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
-    print(f'logging in {user}')
-    hashuser = sha256_hash(user.encode())
-    if cred_check: return c.execute('SELECT COUNT(*) FROM login WHERE user = ?', (hashuser,)).fetchone()[0] != 0
-    hashpass = sha256_hash(password.encode())
-    return c.execute('SELECT COUNT(*) FROM login WHERE user = ? AND pass = ?', (hashuser, hashpass)).fetchone()[0] != 0
+    print(f'SECURITY: attempting to log in {user}')
+    return c.execute('SELECT COUNT(*) FROM login WHERE user = ? AND pass = ?', (user, password)).fetchone()[0] != 0
 
 def register(user, password):
-    '''Executes a DB insertion if the username is not taken, returns True/False depending on status'''
+    '''Register a user'''
     db = sqlite3.connect(DATABASE)
-    c = db.cursor()    
-    hashuser, hashpass = sha256_hash(user.encode()), sha256_hash(password.encode())
-    if c.execute('SELECT COUNT(*) FROM login WHERE user = ?', (hashuser,)).fetchone()[0] > 0: return False # Fail
-    c.execute('INSERT INTO login (user, pass) VALUES (?, ?)', (hashuser, hashpass))
-    db.commit()
-    db.close()
-    return True
+    c = db.cursor()  
+    print(f'SECURITY: attempting to register {user}')  
+    c.execute('INSERT INTO login (user, pass) VALUES (?, ?)', (user, password))
+    db.commit(); db.close()
+
+def user_exists(user):
+    '''Check to see whether a user exists'''
+    db = sqlite3.connect(DATABASE)
+    c = db.cursor()  
+    print(f'SECURITY: attempting to check whether {user} ecists')  
+    return c.execute('SELECT COUNT(*) FROM login WHERE user = ?', (user,)).fetchone()[0] > 0
 
 def encrypt(EName, Superkey, Hash, Owner, Permissions, OName, iv):
     '''Executes a DB insertion of encrypted information'''
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
+    print(f'SECURITY: Encrypting {OName} into {EName}...')
     c.execute('INSERT INTO perm (EFName, Superkey, IV, Hash, Owner, Perms, OName) VALUES (?, ?, ?, ?, ?, ?, ?)', (EName, Superkey, iv, Hash, Owner, Permissions, OName))
-    db.commit()
-    db.close()
+    db.commit(); db.close()
     return True
 
 def decrypt(EName, user, fhash):
     '''Executes a DB read of encrypted information if the EFile is found and the keys, hash, and permissions match'''
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
-    print(fhash)
     if c.execute('SELECT COUNT(*) FROM perm WHERE EFName = ? AND Hash = ? AND Perms = ?', (EName, fhash, user)).fetchone()[0] > 0: 
-        print('found')
+        print(f'SECURITY: Performing decryption on {EName}...')
         c.execute('SELECT * FROM perm WHERE EFName = ?', (EName,))
         data = c.fetchall()[0]
         superkey, iv, oname = data[1], data[2], data[6]
         return (superkey, iv, oname)
-    print('not found')
+    print(f'WARNING!: SECURITY - Decryption file not found!')
     db.close()
     return False 
 
-#hannah:function to check if inputted users for 'decryption permission' exist during encrypt metadata
-#check if current user has decryption permission for uploaded monkey file
 def get_parameter(Efile, parameter):
+    '''Retrieve a given paramter from the file encryption table'''
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
     if parameter == 'hash': query = 'select hash'
@@ -68,14 +62,48 @@ def get_parameter(Efile, parameter):
     elif parameter == 'Owner': query = 'select Owner'
     query = query + " from perm where EFName = ?"
     pstr = c.execute(query, (Efile,)).fetchone()[0]
-    print(f'Getting {parameter} from File {Efile}, value = {pstr}')
+    print(f'SECURITY: Getting {parameter} from File {Efile}')
     db.close()
     return pstr
 
 def update_permissions(Efile, permissions):
+    '''Update an existings encrypted file's decrypt permissions'''
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
-    query = 'UPDATE perm SET Perms = ? WHERE EFName = ?'
-    c.execute(query, (permissions, Efile))
-    db.commit()
-    db.close()
+    c.execute('UPDATE perm SET Perms = ? WHERE EFName = ?', (permissions, Efile))
+    print(f'SECURITY: Updating {Efile} permissions to include {permissions}')
+    db.commit(); db.close()
+
+def Generate_RSA():
+    '''Saves RSA private/public keys used to encrypt AES keys for DB storage'''
+    publicKey, privateKey = rsa.newkeys(1024)       # Generate RSA public/private keys
+    # Save the private key to a file
+    pem = privateKey.save_pkcs1(format='PEM')
+    with open("src/keys/private_key.pem", "wb") as f: f.write(pem)
+    pem = publicKey.save_pkcs1(format='PEM')
+    with open("src/keys/public_key.pem", "wb") as f: f.write(pem)
+    print(f'SECURITY: Generating RSA (1024) keys....')
+
+def RSA_Keys(key):
+    '''Retrieves RSA private/public keys used to encrypt AES keys for DB storage'''
+    print(f'SECURITY: Retrieving RSA {key} key...')    
+    if key == 'public': 
+        with open("src/keys/public_key.pem", "rb") as f: return rsa.key.PublicKey.load_pkcs1(f.read())
+    if key == 'private': 
+        with open('src/keys/private_key.pem', "rb") as f: return rsa.key.PrivateKey.load_pkcs1(f.read())
+
+def UUID_Key(): 
+    '''Retrieves the key for the Generate_uuid function, to prevent from known-PT attack'''
+    print(f'SECURITY: Retrieving UUID keys...')    
+    with(open('src/keys/uuid.key', 'rb')) as f: return f.read().decode('utf-8')
+
+def Generate_cookies(): 
+    '''Generate unique key for storing user cookies (prevents forgery attacks)'''
+    random_bytes = os.urandom(32)    # Generate random bytes
+    secret_key = ''.join('%02x' % byte for byte in random_bytes)    # Convert bytes to hexadecimal string
+    print(f'SECURITY: Generating cookies\' keys...')    
+    with(open('src/keys/cookies.key', 'wb')) as f: return f.write(secret_key.encode())
+
+def Cookies_Key():
+    '''Retrieves the key for cookie signatures, to prevent from signature-forgery attack'''
+    with(open('src/keys/cookies.key', 'rb')) as f: return f.read().decode('utf-8')

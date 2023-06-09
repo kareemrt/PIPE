@@ -8,3 +8,5 @@ for i, val in enumerate(img): img[i] = (val ^ hkey[i%lhkey]) ^ bob[i%lbob]
 with open(f'myimage_enc_test.png','wb') as f: f.write(img)               # Write the encrypted image data to a new file
 for i, val in enumerate(img): img[i] = val ^ key[i%lhkey] ^ bob[i%lbob]
 with open(f'myimage_dec_test.png', 'wb') as file: file.write(img)       # Write the decrypted image data to a new file
+
+import unittest
