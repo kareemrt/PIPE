@@ -22,10 +22,9 @@ def sha256_hash(key):
 def pad_image(img):
     '''Pad an image with extra bits to achieve necessary 256-bit size for AES encryption'''
     padder = padding.PKCS7(256).padder()                # Pad to 256 bits
-    return padder.update(img) + padder.finalize()       
-             # Return hashed string in bytes
+    return padder.update(img) + padder.finalize()       # Return hashed string in bytes
 
-def OUR_encryption(img, hkey):
+def OUR_encrypt(img, hkey):
     '''Encrypt an image (bytes) by performing 2 XOR operations on it: 1st w/ the key's hash (bytes), 2nd w/ a random string'''
     if(type(img) != bytearray): img = bytearray(img)
     bob = "bob".encode()
@@ -33,13 +32,13 @@ def OUR_encryption(img, hkey):
     for i, val in enumerate(img): img[i] = val ^ hkey[i%lkey] ^ bob[i%3]
     return img
 
-def AES_encryption(hkey, image, iv):
+def AES_encrypt(hkey, image, iv):
     '''AES encrypt an image file (after our proprietary encryption has already been performed)'''
     encryptor = Cipher(algorithms.AES(hkey), modes.CBC(iv), backend=default_backend()).encryptor()  # Create an AES cipher object
     AES_encrypted = encryptor.update(image) + encryptor.finalize()                 # Encrypt the image data
     return AES_encrypted
 
-def RSA_encryption(key):
+def RSA_encrypt(key):
     '''RSA encrypt an AES key'''
     RSA_encrypted = rsa.encrypt(key,Security.RSA_Keys('public'))
     return RSA_encrypted
@@ -48,10 +47,10 @@ def encrypt(image, key, owner, permissions, name, iv=secrets.token_bytes(16)):
     '''USER function to encrypt an image and store it in the database, using the methods above'''
     # Key Encryption
     hashed_key = sha256_hash(key.encode())                     # Hash user key (SHA-256) (32 bytes)
-    superkey = RSA_encryption(hashed_key)                      # | LAYER 3 | RSA Encrypt: STORE RSA privately signed AES encryption key
+    superkey = RSA_encrypt(hashed_key)                      # | LAYER 3 | RSA Encrypt: STORE RSA privately signed AES encryption key
     # Image Encryption
-    usrenc = OUR_encryption(image, hashed_key)                 # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
-    AESenc = AES_encryption(hashed_key, pad_image(usrenc), iv) # | LAYER 2 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
+    usrenc = OUR_encrypt(image, hashed_key)                 # | LAYER 1 | Double XOR Encrypt: using inputted user key & its hash(user key)
+    AESenc = AES_encrypt(hashed_key, pad_image(usrenc), iv) # | LAYER 2 | AES Encrypt: using the user_encrypted(img) and private_signed(key)
     # File-name Encryption
     EFName = Generate_uuid(AESenc)
     with open(f'usr/monkeys/{EFName}.Monkey', 'wb') as f: f.write(AESenc)

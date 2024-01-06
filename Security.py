@@ -7,6 +7,16 @@ import rsa
 import os
 DATABASE = 'src/Crypto.db'
 
+# ================================================================================================
+# Security Module Format Guide: 
+# DB Functions - 
+# 1-2 lines of DB connection (SQLite), using a cursor instance to excecute Queries
+# 1-5 lines of Query execution; some functions return instantly, others value parse, others T/F
+# 1-2 lines of connection closing
+# Key Generate/Retrieve Functions -
+# 1-5 lines of either read/write from server directory
+# ================================================================================================
+
 def login(user, password):
     '''True/False Login a user'''
     db = sqlite3.connect(DATABASE)
@@ -42,7 +52,7 @@ def decrypt(EName, user, fhash):
     '''Executes a DB read of encrypted information if the EFile is found and the keys, hash, and permissions match'''
     db = sqlite3.connect(DATABASE)
     c = db.cursor()
-    if c.execute('SELECT COUNT(*) FROM perm WHERE EFName = ? AND Hash = ? AND Perms = ?', (EName, fhash, user)).fetchone()[0] > 0: 
+    if c.execute('SELECT COUNT(*) FROM perm WHERE EFName = ? AND Hash = ? AND Perms = ?', (EName, fhash, user)).fetchone()[0] > 0 or c.execute('SELECT COUNT(*) FROM perm WHERE EFName = ? AND Hash = ? AND Owner = ?', (EName, fhash, user)).fetchone()[0] > 0: 
         print(f'SECURITY: Performing decryption on {EName}...')
         c.execute('SELECT * FROM perm WHERE EFName = ?', (EName,))
         data = c.fetchall()[0]

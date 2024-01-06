@@ -2,6 +2,7 @@
 # Auth : Hannah S & Kareem T (6/5/23)
 # Desc : Web app frameworks
 from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from waitress import serve
 import Encrypt
 import Decrypt
 import Login
@@ -68,19 +69,20 @@ def choose() -> render_template:
 def accept_metadata() -> render_template:
     '''User is attempting to encrypt a file'''
     if request.method == 'POST':
-        current_user = session.get('user')
+        current_user = session.get('user') # web-page parameters and user
         pass_key = request.form['passkey']
         decrypt_users = request.form['decrypt_users']
         image_upload = request.files['image_upload']
         file_name = request.form['file_name']
-        list_of_users = re.findall(r'\b\S+\b', decrypt_users)
+
+        list_of_users = re.findall(r'\b\S+\b', decrypt_users) # string parsing from web input
         logging.debug(f'ENCRYPTION: {current_user}')
 
-        if image_upload: logging.info(f"ENCRYPTION: Image Upload - We got something from {current_user}")
-        if Login.check_perms_exist(list_of_users) == False: 
+        if image_upload: logging.info(f"ENCRYPTION: Image Upload - We got something from {current_user}") # check image uploaded
+        if Login.check_perms_exist(list_of_users) == False: # check share users exist
             logging.warning(f'ERROR: Encryption - {current_user} tried to give permissions to 1+ non-existing users!')
             return render_template("encrypt_metadata.html", msg = "One or more of these users do not exist! please try again") #Tried to give decrypt permission to users that do not exist
-        EFName = Encrypt.encrypt(image_upload.read(), pass_key, current_user, decrypt_users, file_name)      
+        EFName = Encrypt.encrypt(image_upload.read(), pass_key, current_user, decrypt_users, file_name) # encrypt
 
         return render_template('download_encrypted.html', msg = "File Successfully secured!", EFName = EFName)
     return render_template('encrypt_metadata.html')
@@ -92,7 +94,7 @@ def download_file(EFname):
     logging.info(f'ENCRYPTION: user downloaded {path}')
     ret_file = io.BytesIO()
     # Perform the file deletion after sending it
-    with(open(path, 'rb') as f): ret_file.write(f.read())
+    with(open(path, 'rb')) as f: ret_file.write(f.read())
     ret_file.seek(0)
     os.remove(path) # If you seek to store the encrypted files, comment this line out
     return send_file(ret_file, as_attachment=True, download_name=f'{EFname}.Monkey')
@@ -104,19 +106,19 @@ def authorize_decryption() -> render_template:
 
     if request.method == 'POST':
 
-        pass_key = request.form['passkey']
+        pass_key = request.form['passkey'] # webpage parameters
         Efile = request.files['Monkey_upload']
         current_user = session.get('user')
         
-        temp_key = hash(pass_key.encode())
+        temp_key = hash(pass_key.encode()) # hash the key, get the file in bytes
         usrFILE = bytearray(Efile.read())
-        error = Decrypt.check_conditions(hash(usrFILE), Efile.filename, current_user, temp_key)
-        decryption = Decrypt.decrypt(Efile.filename, current_user, hash(usrFILE), usrFILE)
+        error = Decrypt.check_conditions(hash(usrFILE), Efile.filename, current_user, temp_key) # check if conditions valid
+        decryption = Decrypt.decrypt(Efile.filename, current_user, hash(usrFILE), usrFILE) # try decryption, it will return a file name if it works
         logging.debug(f'DECRYPTION: {current_user}')
 
-        if(type(error) != str and decryption): return render_template('decrypted_download.html', fname = decryption)
+        if(type(error) != str and decryption): return render_template('decrypted_download.html', fname = decryption) # render download if works
         logging.warning(f'ERROR: Decryption - Failed due to invalid conditions, error message: {error}')
-        return render_template('decrypt_metadata.html', msg = error)
+        return render_template('decrypt_metadata.html', msg = error) # and error msg if it doesnt
     return render_template('decrypt_metadata.html')
 
 @app.route('/download_decrypted/<fname>', methods=["GET","POST"])
@@ -124,11 +126,11 @@ def download_decrypt_file(fname):
     '''User is downloading decrypted file'''
     path = f'usr/plain/{fname}'
     logging.info(f'DECRYPTION: user downloaded {path}')
-    ret_file = io.BytesIO()
     # Perform the file deletion after sending it
-    with(open(path, 'rb') as f): ret_file.write(f.read())
+    ret_file = io.BytesIO()
+    with(open(path, 'rb')) as f: ret_file.write(f.read())
     ret_file.seek(0)
-    os.remove(path) # If you seek to store the decrypted files, comment this line out
+    os.remove(path) # If you seek to store the decrypted files, comment this line out. this deletes the downloaded file from the server.
     return send_file(ret_file, as_attachment=True, download_name=fname)
 
 @app.route('/update_permission', methods=["GET","POST"]) # update decryption permissions for a monkey file 
@@ -136,15 +138,18 @@ def update_perms() -> render_template:
     '''User is updating decryption permissions'''
     if request.method == 'POST':
 
-        current_user = session.get('user')
+        current_user = session.get('user') # webpage parameters
         file_upload = request.files['image_upload']
         new_decrypt_users = request.form['decrypt_users']
-        EFName = (re.sub('\.Monkey$', '', file_upload.filename))
+
+        EFName = (re.sub('\.Monkey$', '', file_upload.filename)) # clean filename and file (to bytes)
         usrFILE = bytearray(file_upload.read())
         
-        update_status = Decrypt.update_permissions(usrFILE, EFName, current_user, new_decrypt_users)
+        update_status = Decrypt.update_permissions(usrFILE, EFName, current_user, new_decrypt_users) # try updating
         logging.info(f'DECRYPTION: updating permissions completion status for {EFName}: {update_status}')
     return render_template('update_permission.html')
 
 if __name__ == '__main__':
+    #serve(app, host='0.0.0.0', port=5000)
+    # if the above function is buggy (servee is a function of waitress module, our wsgi server), use below instead
     app.run(debug=True)
